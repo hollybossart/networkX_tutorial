@@ -192,7 +192,7 @@ def graph(timeMin, timeMax, numNodes, seed):
     plt.title('Degree distribution skewness')
     plt.xlabel('Time steps')
     plt.plot(time, degree_skew, color='blue')
-    plt.ylim(0,1)
+    
     
     # plotting the average clustering coefficient
     plt.figure()
@@ -210,7 +210,7 @@ def graph(timeMin, timeMax, numNodes, seed):
         
 
 
-graph(1,100, 81, 5)
+
     
 
 
