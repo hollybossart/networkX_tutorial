@@ -2,6 +2,7 @@ import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
 from networkx.exception import NetworkXError
+from scipy.stats import skew as sk
 
 def graph(timeMin, timeMax, numNodes, seed):
     """
@@ -35,8 +36,8 @@ def graph(timeMin, timeMax, numNodes, seed):
     # create a list to store mean path length
     mean_path = []
     
-    # average degree of the network
-    avg_degree = []
+    # skew array
+    degree_skew = []
 
     # time steps
     time = np.arange(timeMin, timeMax+1)
@@ -161,42 +162,55 @@ def graph(timeMin, timeMax, numNodes, seed):
                 network_dict[node] = {}
                     
         # creates a graph object from a dict of dicts
-        graph = nx.convert.from_dict_of_dicts(network_dict)   
+        graph = nx.convert.from_dict_of_dicts(network_dict)
+        
         
         # add mean path length -- issues here
         try:
-            mean_path.append(nx.average_shortest_path_length(graph))
-            print('hello')
+            # a NetworkXError will be thrown here if there are any nodes with no connections
+            tmp = nx.average_shortest_path_length(graph)
+            mean_path.append(tmp)
+            
         except NetworkXError:
-            mean_path.append(0)
+            mean_path.append(None)
         
         # add cluster coef
         cluster_coef.append(nx.average_clustering(graph))
         
         # add average degree
-        degrees = graph.degree()
-        sum_of_edges = sum(dict(degrees).values())
-        avg_degree.append(sum_of_edges/numNodes)
+        degrees = list(dict(graph.degree()).values())
+        degree_skew.append(sk(degrees))
+
+
+
     
     # end of time steps
     
     # plot the graph
-    plt.figure(1, figsize=(8,10))
-    plt.subplot(211)
-    plt.title('Number of nodes: '+ str(numNodes))
+    # plotting the degree distribution skewness
+    plt.figure()
+    plt.title('Degree distribution skewness')
     plt.xlabel('Time steps')
-    plt.plot(time, mean_path, label='Mean path length')
-    plt.plot(time, cluster_coef, label='Clustering coefficient')
-    plt.legend()
-    plt.subplot(212)
-    plt.plot(time, avg_degree, label='Average degree', color='k')
-    plt.xlabel('Time steps')
-    plt.legend()
+    plt.plot(time, degree_skew, color='blue')
+    plt.ylim(0,1)
     
+    # plotting the average clustering coefficient
+    plt.figure()
+    plt.title('Average clustering coefficient (per node for each graph at a time step)')
+    plt.xlabel('Time step')
+    plt.plot(time, cluster_coef, color='red')
+    
+    # plotting the mean path length
+    plt.figure()
+    plt.title('Mean path length')
+    plt.xlabel('Time step')
+    plt.plot(time, mean_path, color='orange')
+    
+
         
 
 
-
+graph(1,100, 81, 5)
     
 
 
