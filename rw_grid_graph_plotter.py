@@ -1,6 +1,7 @@
 import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
+from itertools import product
 from networkx.exception import NetworkXError
 from scipy.stats import skew as sk
 
@@ -9,7 +10,7 @@ def graph(timeMin, timeMax, dims, seed):
 
     :param timeMin: min time step represented on x-axis >1
     :param timeMax: max time step represented on x-axis
-    :param dims: tuple where dim[0] is row, dim[1] is col 
+    :param dims: tuple where dim[0] is num rows, dim[1] is num cols 
     :param seed: the random number seed for np.random.seed
 
     :return: graphs of mean path length, cluster coef, and skewness
@@ -18,17 +19,14 @@ def graph(timeMin, timeMax, dims, seed):
     # clarifies the dimensions
     rows = dims[0]
     cols = dims[1]
-    numNodes = rows*cols
+
     
     # sets the random seed
     np.random.seed(seed)
-
-    # generating agent IDs
-    agent_IDs = np.arange(1, numNodes+1)
     
     # generating the coordinates for location stored as tuples
     # this uses something similar to an x y coordinate, so it may seem backwards
-    coordinates = [(i, j) for i in range(cols) for j in range(rows)]
+    coordinates = [(i, j) for i in range(cols+1) for j in range(rows+1)]
     
     # create a list to store cluster coefficients
     cluster_coef = []
@@ -41,19 +39,26 @@ def graph(timeMin, timeMax, dims, seed):
 
     # time steps
     time = np.arange(timeMin, timeMax+1)
-    
-    # create network 
-    network = nx.grid_2d_graph(rows, cols, True)
-    
-    # this will connect the location with the agent ID
-    # happens in order of appearance here according to random agent ID generator
-    # this will not change -- physical location
-    location_dict = dict(zip(agent_IDs, coordinates))
-    nx.draw(network, with_labels=True)
+        
+    # make agent ID list
+    # agent_IDS are stored as strings even though they are just integers
+    # the reason for this is to avoid python getting rid of the leading zero
+    agent_IDS = [str(item[0]) + str(item[1]) for item in coordinates]
     
     # create a dictionary that will store the current location of each agent
-    # initially, it is the exact same as location_dict
-    current_loc_dict = dict(zip(agent_IDs, coordinates))
+    # this will eventually change but it starts with each agent at their coordinate
+    current_loc_dict = dict(zip(agent_IDS, coordinates))
+    
+    # create grid network 
+    # periodic = True indicates border nodes will wrap around
+    network = nx.grid_2d_graph(rows, cols, periodic=True)
+    network = nx.relabel_nodes(network, dict(zip(coordinates, agent_IDS)))
+    grid = nx.grid_2d_graph(rows, cols, periodic=True)
+    grid = nx.relabel_nodes(grid, dict(zip(coordinates, agent_IDS)))
+    plt.figure()
+    nx.draw_networkx(network)
+    plt.show()
+    
     
     # looping through time steps
     for i in time:
@@ -80,21 +85,21 @@ def graph(timeMin, timeMax, dims, seed):
                 
                 # check if "moving" off of the board
                 if new_loc[0] < 0:
-                    new_loc = (dim-1, y_coord)
+                    new_loc = (cols-1, y_coord)
                 
              # moving east
             if direction == 2:
                 new_loc = (x_coord + 1, y_coord)
                 
                 # check if "moving" off of the board
-                if new_loc[0] > dim-1:
+                if new_loc[0] > cols-1:
                     new_loc = (0, y_coord)
                 
             # moving north   
             if direction == 3:
                 new_loc = (x_coord, y_coord+1)
                 
-                if new_loc[1] > dim-1:
+                if new_loc[1] > rows-1:
                     new_loc = (x_coord, 0)
                     
             # moving south
@@ -102,7 +107,7 @@ def graph(timeMin, timeMax, dims, seed):
                 new_loc = (x_coord, y_coord-1)
                 
                 if new_loc[1] < 0:
-                    new_loc = (x_coord, dim-1)
+                    new_loc = (x_coord, rows-1)
                     
                     
             # now that the agent has "moved" we will add each agent to the dict
@@ -120,62 +125,38 @@ def graph(timeMin, timeMax, dims, seed):
             current_loc_dict[agent] = new_loc
         
         # end of inner for loop -- all agents have moved after this time step 
-          
+         
         # now that we know who has made a connection with who, we need to mark that connection 
         for spot in coord_dict:
             
             # current agents at the given coordinate location
             current_agents = coord_dict[spot]
             
-            # if the location is currently empty, don't add anything and move to next loc
             if current_agents != None:
-                # I have to make this a dictionary
-                current_agents_dict = dict(zip(current_agents, [{}]*len(current_agents)))
-            
-                # to avoid using a nested for-loop, just grab the first agent at spot
-                first_agent = current_agents[0]
-                
-                # if the agent has made no previous connections, add in the current 
-                # connections as a list type
-                if network_dict[first_agent] == None:
-                    temp = {first_agent: current_agents_dict}
-                    network_dict.update(temp)
-                    
-                # otherwise, extend the current list of connections by adding in 
-                # the connections that were just made to first agent
-                else:
-                    network_dict[first_agent].update(current_agents_dict)
+                # creates all possible edge combinations 
+                edge_tuples = list(product(current_agents, current_agents))
+                temporary = network.edges
+                network.add_edges_from(edge_tuples)
+        
+        network.add_edges_from(grid.edges)
+        
+        plt.figure()
+        nx.draw_networkx(network)
+        plt.show()
     
-                    
-                # this will only add the connections to one node
-                # meaning the adjacency list won't be symmetric
-                # because our graph is undirected this is okay
-                # it also has each node "connected" to itself
-                # we need this for networkx so that all nodes are accounted for
-                
-        # networkX cannot allow for a None object in the dictionary
-        for node in network_dict:
-            if network_dict[node] == None:
-                network_dict[node] = {}
-                    
-        # creates a graph object from a dict of dicts
-        graph = nx.convert.from_dict_of_dicts(network_dict)
-        
-        
         # add mean path length -- issues here
         try:
-            # a NetworkXError will be thrown here if there are any nodes with no connections
-            tmp = nx.average_shortest_path_length(graph)
+            tmp = nx.average_shortest_path_length(network)
             mean_path.append(tmp)
             
         except NetworkXError:
             mean_path.append(None)
         
         # add cluster coef
-        cluster_coef.append(nx.average_clustering(graph))
+        cluster_coef.append(nx.average_clustering(network))
         
         # add average degree
-        degrees = list(dict(graph.degree()).values())
+        degrees = list(dict(network.degree()).values())
         degree_skew.append(sk(degrees))
 
 
