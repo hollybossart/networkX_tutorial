@@ -26,7 +26,7 @@ def graph(timeMin, timeMax, dims, seed):
     
     # generating the coordinates for location stored as tuples
     # this uses something similar to an x y coordinate, so it may seem backwards
-    coordinates = [(i, j) for i in range(cols+1) for j in range(rows+1)]
+    coordinates = [(i, j) for i in range(cols) for j in range(rows)]
     
     # create a list to store cluster coefficients
     cluster_coef = []
@@ -50,16 +50,17 @@ def graph(timeMin, timeMax, dims, seed):
     current_loc_dict = dict(zip(agent_IDS, coordinates))
     
     # create grid network 
-    # periodic = True indicates border nodes will wrap around
-    network = nx.grid_2d_graph(rows, cols, periodic=True)
-    network = nx.relabel_nodes(network, dict(zip(coordinates, agent_IDS)))
-    grid = nx.grid_2d_graph(rows, cols, periodic=True)
-    grid = nx.relabel_nodes(grid, dict(zip(coordinates, agent_IDS)))
+    network = nx.grid_2d_graph(rows, cols, True)
     plt.figure()
-    nx.draw_networkx(network)
+    nx.draw(network, with_labels=True)
     plt.show()
     
-    
+    network = nx.relabel_nodes(network, dict(zip(coordinates, agent_IDS)))
+    plt.figure()
+    nx.draw(network, with_labels=True)
+    plt.show()
+    print(nx.average_shortest_path_length(network))
+ 
     # looping through time steps
     for i in time:
         
@@ -135,14 +136,10 @@ def graph(timeMin, timeMax, dims, seed):
             if current_agents != None:
                 # creates all possible edge combinations 
                 edge_tuples = list(product(current_agents, current_agents))
-                temporary = network.edges
                 network.add_edges_from(edge_tuples)
         
-        network.add_edges_from(grid.edges)
+        network.add_edges_from(original_edges)
         
-        plt.figure()
-        nx.draw_networkx(network)
-        plt.show()
     
         # add mean path length -- issues here
         try:
@@ -187,7 +184,7 @@ def graph(timeMin, timeMax, dims, seed):
 
         
 
-graph(1, 100, (4,3), 5)
+graph(1, 50, (3,3), 5)
 
     
 
